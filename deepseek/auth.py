@@ -98,21 +98,38 @@ _READ_TOKEN_JS = """
 """
 
 
+def _safe_evaluate(page, js: str):
+    """Run page.evaluate, swallowing the benign 'Execution context was destroyed'
+    error that fires when a navigation (e.g. the post-login redirect) happens to
+    land mid-evaluate. Returns None on any such transient failure instead of
+    raising, so callers can just retry on the next poll."""
+    try:
+        return page.evaluate(js)
+    except Exception as e:
+        msg = str(e)
+        if "Execution context was destroyed" in msg or "navigation" in msg.lower():
+            return None
+        raise
+
+
 def _capture_from_context(context, page) -> Optional[Session]:
     """Read token + cookies + UA off a logged-in page, or None if not signed in."""
-    token = page.evaluate(_READ_TOKEN_JS)
+    token = _safe_evaluate(page, _READ_TOKEN_JS)
     if not token:
         return None
     cookies = {c["name"]: c["value"] for c in context.cookies()}
-    ua = page.evaluate("() => navigator.userAgent")
+    ua = _safe_evaluate(page, "() => navigator.userAgent") or ""
     return Session(token=token, cookies=cookies, user_agent=ua, captured_at=time.time())
 
 
 def _wait_for_token(page, timeout: float) -> Optional[str]:
-    """Poll localStorage.userToken until it appears or we time out."""
+    """Poll localStorage.userToken until it appears or we time out. Tolerates
+    transient navigations (e.g. the Google OAuth redirect chain) that briefly
+    destroy the page's JS execution context — those just count as "no token
+    yet" rather than aborting the whole login."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        token = page.evaluate(_READ_TOKEN_JS)
+        token = _safe_evaluate(page, _READ_TOKEN_JS)
         if token:
             return token
         page.wait_for_timeout(1000)
