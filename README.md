@@ -52,7 +52,7 @@ You sign in once in a browser with your DeepSeek account; your session is saved 
 
 ```bash
 # 1. Clone the project
-git clone <your-repo-url>
+git clone https://github.com/sums001/Deepseek-API.git
 cd "Deepseek-API"
 ```
 
