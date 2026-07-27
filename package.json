@@ -1,0 +1,13 @@
+{
+  "name": "deepseek-api",
+  "version": "1.0.0",
+  "description": "DeepSeek API server - Termux Playwright helper",
+  "main": "deepseek/auth_helper.js",
+  "scripts": {
+    "auth": "node deepseek/auth_helper.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "playwright-core": "^1.54.1"
+  }
+}

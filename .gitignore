@@ -6,6 +6,7 @@ __pycache__/
 # Session artifacts — contain session tokens + cookies. NEVER commit.
 session.json
 session
+node_modules/
 *.env.*
 !.env.example
 CLAUDE.md

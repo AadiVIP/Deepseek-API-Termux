@@ -1,5 +1,5 @@
 """
-Authentication — Playwright login + session capture.
+Authentication — Node.js Playwright-core login + session capture for Termux.
 
 Mirrors the Windows-Copilot-API design: the browser is used ONLY to establish a
 signed-in session (handling the AWS WAF / "verify you're human" check and the
@@ -19,12 +19,12 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Optional
-
-from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 # Override with DEEPSEEK_PROFILE_DIR to reuse an existing signed-in Chrome profile.
@@ -34,7 +34,6 @@ DEFAULT_SESSION_FILE = ROOT / "session" / "session.json"
 CHAT_URL = "https://chat.deepseek.com/"
 SIGNIN_URL = "https://chat.deepseek.com/sign_in"
 
-LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"]
 # Token is trusted for this long before we refresh it from the browser again.
 SESSION_MAX_AGE = 6 * 60 * 60  # 6 hours
 
@@ -82,72 +81,53 @@ class Session:
             return None
 
 
-# --- in-page helpers --------------------------------------------------------
+def _run_node_auth(
+    profile_dir: Path,
+    headless: bool = False,
+    assume_logged_out: bool = False,
+    timeout: int = 300,
+) -> Optional[Session]:
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    helper_script = Path(__file__).resolve().parent / "auth_helper.js"
 
-# Reads the bearer token the web app stores after login. Shape:
-#   localStorage.userToken = {"value":"<TOKEN>","__version":"0"}
-_READ_TOKEN_JS = """
-() => {
-  try {
-    const raw = window.localStorage.getItem('userToken');
-    if (!raw) return null;
-    const o = JSON.parse(raw);
-    return (o && o.value) ? o.value : null;
-  } catch (e) { return null; }
-}
-"""
+    cmd = [
+        "node",
+        str(helper_script),
+        "--profile", str(profile_dir),
+        "--timeout", str(timeout),
+    ]
+    if headless:
+        cmd.append("--headless")
+    if assume_logged_out:
+        cmd.append("--assume-logged-out")
 
+    env = os.environ.copy()
+    if "CHROMIUM_PATH" not in env:
+        env["CHROMIUM_PATH"] = "/data/data/com.termux/files/usr/bin/chromium-browser"
+    if "PLAYWRIGHT_BROWSERS_PATH" not in env:
+        env["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
-def _safe_evaluate(page, js: str):
-    """Run page.evaluate, swallowing the benign 'Execution context was destroyed'
-    error that fires when a navigation (e.g. the post-login redirect) happens to
-    land mid-evaluate. Returns None on any such transient failure instead of
-    raising, so callers can just retry on the next poll."""
-    try:
-        return page.evaluate(js)
-    except Exception as e:
-        msg = str(e)
-        if "Execution context was destroyed" in msg or "navigation" in msg.lower():
-            return None
-        raise
-
-
-def _capture_from_context(context, page) -> Optional[Session]:
-    """Read token + cookies + UA off a logged-in page, or None if not signed in."""
-    token = _safe_evaluate(page, _READ_TOKEN_JS)
-    if not token:
+    res = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    if res.returncode != 0:
+        if res.stderr:
+            print(res.stderr.strip(), file=sys.stderr)
         return None
-    cookies = {c["name"]: c["value"] for c in context.cookies()}
-    ua = _safe_evaluate(page, "() => navigator.userAgent") or ""
-    return Session(token=token, cookies=cookies, user_agent=ua, captured_at=time.time())
 
+    stdout = res.stdout.strip()
+    if not stdout:
+        return None
 
-def _wait_for_token(page, timeout: float) -> Optional[str]:
-    """Poll localStorage.userToken until it appears or we time out. Tolerates
-    transient navigations (e.g. the Google OAuth redirect chain) that briefly
-    destroy the page's JS execution context — those just count as "no token
-    yet" rather than aborting the whole login."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        token = _safe_evaluate(page, _READ_TOKEN_JS)
-        if token:
-            return token
-        page.wait_for_timeout(1000)
-    return None
-
-
-def _safe_goto(page, url: str) -> None:
-    """Navigate, tolerating the benign `net::ERR_ABORTED` that DeepSeek's SPA
-    redirects and the AWS WAF check often raise mid-navigation. We wait only for
-    the initial commit, not full `load`; the token-poll afterwards is what
-    actually gates sign-in, so an aborted/partial load here is fine."""
     try:
-        page.goto(url, wait_until="commit", timeout=60000)
+        data = json.loads(stdout)
+        return Session(
+            token=data["token"],
+            cookies=data["cookies"],
+            user_agent=data["user_agent"],
+            captured_at=float(data["captured_at"]),
+        )
     except Exception as e:
-        print(f"[auth] navigation to {url} was interrupted ({type(e).__name__}); "
-              "continuing — finish signing in in the window if needed.")
-    # Give the SPA a moment to render its login UI before we touch the form.
-    page.wait_for_timeout(2000)
+        print(f"[auth] Failed to parse session JSON from Node helper: {e}", file=sys.stderr)
+        return None
 
 
 def login(
@@ -155,72 +135,29 @@ def login(
     headless: bool = False,
     assume_logged_out: bool = False,
 ) -> Session:
-    """Interactive login. Opens a visible window and waits for you to sign in by
-    hand (and clear the AWS WAF human-check); once a token appears it captures
-    and saves the session. The persistent profile means later `get_session()`
-    calls capture the token headlessly without a window.
-
-    `assume_logged_out=True` skips the initial "are we already signed in?" hop to
-    CHAT_URL and goes straight to the sign-in page. Callers that have just
-    confirmed there's no token (e.g. get_session after a failed headless refresh)
-    pass this so the window doesn't visibly bounce CHAT_URL -> SIGNIN_URL."""
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    with sync_playwright() as p:
-        try:
-            context = p.chromium.launch_persistent_context(
-                str(profile_dir), headless=headless, channel="chrome", args=LAUNCH_ARGS,
-            )
-        except Exception:
-            context = p.chromium.launch_persistent_context(
-                str(profile_dir), headless=headless, args=LAUNCH_ARGS,
-            )
-        page = context.pages[0] if context.pages else context.new_page()
-
-        # Normally we first land on CHAT_URL to reuse an already-signed-in
-        # profile. When the caller already knows we're logged out, skip straight
-        # to the sign-in page so the window doesn't appear to "refresh".
-        existing = None
-        if not assume_logged_out:
-            _safe_goto(page, CHAT_URL)
-            existing = page.evaluate(_READ_TOKEN_JS)
-
-        if not existing:
-            _safe_goto(page, SIGNIN_URL)
-            print("[auth] Please sign in in the window (solve the human-check if "
-                  "shown). Waiting for the session...")
-            if not _wait_for_token(page, timeout=300):
-                context.close()
-                raise RuntimeError("Login timed out — no token captured.")
-
-        session = _capture_from_context(context, page)
-        context.close()
-        if session is None:
-            raise RuntimeError("Logged in but could not read the token.")
-        session.save()
-        return session
+    """Interactive login. Opens a browser window via Node.js playwright-core and waits
+    for you to sign in by hand (and clear the AWS WAF human-check); once a token appears it
+    captures and saves the session."""
+    session = _run_node_auth(
+        profile_dir=profile_dir,
+        headless=headless,
+        assume_logged_out=assume_logged_out,
+        timeout=300,
+    )
+    if session is None:
+        raise RuntimeError("Login timed out or failed — no token captured.")
+    session.save()
+    return session
 
 
 def _headless_refresh(profile_dir: Path) -> Optional[Session]:
-    """Try to capture a token headlessly from the persistent profile. Returns a
-    saved Session if the profile is still signed in, else None. Never opens a
-    visible window."""
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    with sync_playwright() as p:
-        try:
-            context = p.chromium.launch_persistent_context(
-                str(profile_dir), headless=True, channel="chrome", args=LAUNCH_ARGS,
-            )
-        except Exception:
-            context = p.chromium.launch_persistent_context(
-                str(profile_dir), headless=True, args=LAUNCH_ARGS,
-            )
-        page = context.pages[0] if context.pages else context.new_page()
-        try:
-            _safe_goto(page, CHAT_URL)
-            session = _capture_from_context(context, page)
-        finally:
-            context.close()
-
+    """Try to capture a token headlessly from the persistent profile via Node.js playwright-core."""
+    session = _run_node_auth(
+        profile_dir=profile_dir,
+        headless=True,
+        assume_logged_out=False,
+        timeout=20,
+    )
     if session is not None:
         session.save()
     return session
@@ -235,12 +172,9 @@ def get_session(
     """Return a usable session: cached file if fresh, else a headless refresh
     from the browser profile.
 
-    If neither works and `allow_interactive` is True, open a visible window for
+    If neither works and `allow_interactive` is True, open a browser window for
     manual sign-in. If it's False (the server's case — we can't pop a browser
-    mid-request), raise `LoginRequired` telling the user to run the login step.
-
-    Note: this uses Playwright's *sync* API, so it must not be called from inside
-    an asyncio event loop — call it from a worker thread (e.g. run_in_threadpool)."""
+    mid-request), raise `LoginRequired` telling the user to run the login step."""
     cached = Session.load(session_file)
     if cached and cached.age < max_age:
         return cached
@@ -253,10 +187,8 @@ def get_session(
     if not allow_interactive:
         raise LoginRequired()
 
-    # Not logged in yet — open a visible window so the user can sign in (and
-    # clear the human-check) by hand. The persistent profile means this only
-    # happens once — later calls capture the token headlessly. We just confirmed
-    # (above) there's no token, so go straight to the sign-in page.
+    # Not logged in yet — open a browser window so the user can sign in (and
+    # clear the human-check) by hand.
     print("[auth] No valid session found — opening a browser window to log in...")
     return login(profile_dir=profile_dir, assume_logged_out=True)
 

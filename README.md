@@ -91,6 +91,27 @@ The login window opens so you can sign in by hand and solve the human-check once
 
 > The server can also open this window for you on demand the first time it needs a session, so this step is optional for local single-user use.
 
+### Termux (Android) Setup
+
+On **Android Termux**, Python Playwright cannot be installed directly. This repository includes a Node.js `playwright-core` helper layer that uses Termux's system Chromium binary (`/data/data/com.termux/files/usr/bin/chromium-browser`).
+
+```bash
+# 1. Install system dependencies (Chromium, Node.js, Python)
+pkg install x11-repo
+pkg install chromium nodejs python
+
+# 2. Install Node.js dependencies
+npm install
+
+# 3. Install Python dependencies
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 4. Sign in once
+python3 -m deepseek.auth
+```
+
 ---
 
 ## Usage 1: In Python (no server)
