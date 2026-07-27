@@ -1,520 +1,148 @@
-# DeepSeek-API-Termux
+DeepSeek-API-Termux
 
-Run **DeepSeek locally inside Termux** and expose it through an **OpenAI-compatible API**.
+Run DeepSeek authentication inside Termux and automatically capture the required session for the original DeepSeek-API project.
 
-This repository is intended **only for installing and running the local DeepSeek API server**. Once installed, it can be used with any application that supports the OpenAI Chat Completions API.
+This repository only provides a Termux-friendly authentication flow. Once your session has been captured, continue with the original DeepSeek-API repository to install and run the OpenAI-compatible API server.
 
-Compatible applications include:
-
-- 🚀 OpenCode (via OpenCodex)
-- 🤖 Continue
-- 💻 Cline
-- 🦘 Roo Code
-- 🌐 Open WebUI
-- 💬 LibreChat
-- 🔌 Any client supporting the OpenAI Chat Completions API
+«Original project: https://github.com/sums001/Deepseek-API»
 
 ---
 
-# Features
+Features
 
-- 🚀 Runs entirely inside Termux
-- 🤖 OpenAI-compatible API
-- 💬 OpenAI Chat Completions API
-- 📦 No Docker required
-- 🌐 Completely local and offline
-- 🔌 Compatible with OpenAI-compatible applications
-- 🖥️ Easy model management through OpenCodex
+- ✅ Designed for Termux
+- 🖥️ Chromium authentication through Termux:X11
+- 🔑 Automatically captures your DeepSeek session
+- 💾 Saves your session locally
+- 🚀 Fully compatible with the original DeepSeek-API project
 
 ---
 
-# Prerequisites
+Prerequisites
 
-Before installing **DeepSeek-API-Termux**, install the latest **Termux:X11**.
+Install the latest Termux.
+
+Also install:
+
+- Termux:X11 Nightly
+- Termux:X11 Nightly Repository
 
 Nightly builds are recommended to avoid compatibility issues.
 
-## Install required packages
+Update Termux and enable the X11 repository:
 
-```bash
 pkg update
 pkg upgrade
 
-pkg install nodejs
-pkg install npm
-pkg install chromium
-```
+pkg install x11-repo
+pkg update
 
-Also install the latest **termux-x11** package.
+Install the required packages:
+
+pkg install python nodejs chromium git
+
+You should now have:
+
+- ✅ Termux
+- ✅ Termux:X11 (Nightly)
+- ✅ x11-repo
+- ✅ Python
+- ✅ Node.js (includes npm)
+- ✅ Chromium
+- ✅ Git
 
 ---
 
-# Start Termux:X11
+Installation
 
-Launch Termux:X11 before authenticating.
+Clone this repository:
 
-In the **same terminal session** you'll use for the installation, run:
+git clone https://github.com/<your-username>/DeepSeek-API-Termux.git
+cd DeepSeek-API-Termux
 
-```bash
+Install the Python dependencies:
+
+pip install -r requirements.txt
+
+Install the Node.js dependencies:
+
+npm install
+
+---
+
+Start Termux:X11
+
+Before authenticating, start the Termux:X11 server.
+
+Run the following in the same terminal session:
+
 termux-x11 :0 &
 export DISPLAY=:0
-```
 
-**Do not open another terminal tab.**
+Do not open another terminal tab.
 
-Continue using this same shell for the remaining commands.
-
----
-
-# Authenticate DeepSeek
-
-After installing the package, authenticate by running:
-
-```bash
-python -m deepseek.auth
-```
-
-A Chromium window will open.
-
-## Important
-
-- ✅ Log in to your **existing DeepSeek account**
-- ❌ Do **NOT** create a new account during authentication
-
-Creating accounts through this automated login flow may trigger additional verification or flag your IP.
-
-Once login completes, the authentication token will be captured automatically.
+Continue using the same shell.
 
 ---
 
-# API
-
-Default server:
-
-```
-http://127.0.0.1:8000/v1
-```
-
-Supported endpoints:
-
-```
-GET  /v1/models
-POST /v1/chat/completions
-```
-
----
-
-# Verify Installation
-
-```bash
-curl http://127.0.0.1:8000/v1/models
-```
-
-Expected response:
-
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "deepseek-chat"
-    },
-    {
-      "id": "deepseek-expert"
-    }
-  ]
-}
-```
-
----
-
-# Why OpenCodex?
-
-This project exposes the **OpenAI Chat Completions API**.
-
-OpenCode currently uses the newer **OpenAI Responses API**, so it cannot communicate directly with this server.
-
-OpenCodex acts as a compatibility layer by translating Responses API requests into Chat Completions API requests.
-
-Applications that already support the OpenAI Chat Completions API (such as Continue, Cline, Roo Code, Open WebUI and LibreChat) can connect directly without OpenCodex if they support custom endpoints.
-
----
-
-# Install OpenCodex
-
-```bash
-npm install -g @bitkyc08/opencodex
-```
-
----
-
-# Configure OpenCodex
-
-Start OpenCodex once:
-
-```bash
-ocx start
-```
-
-Open the dashboard:
-
-```
-http://localhost:10100
-```
-
-Go to:
-
-```
-Providers
-```
-
-Add a new provider.
-
-## Provider Type
-
-```
-LM Studio
-```
-
-## Base URL
-
-```
-http://127.0.0.1:8000/v1
-```
-
-## API Key
-
-```
-dummy
-```
-
-## Default Model
-
-```
-deepseek-chat
-```
-
-Enable:
-
-```
-☑ Allow local/private network
-```
-
-Click:
-
-```
-Add Provider
-```
-
----
-
-# Set LM Studio as Default
-
-After adding the provider:
-
-1. Open **Providers**
-2. Select **LM Studio**
-3. Click **Set as Default**
-4. Restart OpenCodex
-
-(Optional)
-
-Delete the default OpenAI provider afterwards.
-
----
-
-# Start OpenCodex
-
-```bash
-ocx start
-```
-
-Verify:
-
-```bash
-curl http://127.0.0.1:10100/v1/models
-```
-
-Expected:
-
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "lm-studio/deepseek-chat"
-    },
-    {
-      "id": "lm-studio/deepseek-expert"
-    }
-  ]
-}
-```
-
----
-
-# Configure OpenCode
-
-Example configuration:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "openai": {
-      "options": {
-        "baseURL": "http://127.0.0.1:10100/v1",
-        "apiKey": "dummy"
-      },
-      "models": {
-        "lm-studio/deepseek-chat": {},
-        "lm-studio/deepseek-expert": {}
-      }
-    }
-  },
-  "model": "openai/lm-studio/deepseek-chat"
-}
-```
-
----
-
-# Changing Models
-
-Once configured, you do **not** need to edit any JSON files.
-
-Open the OpenCodex dashboard:
-
-```
-http://localhost:10100
-```
-
-Navigate to:
-
-```
-Providers
-    ↓
-LM Studio
-    ↓
-Models
-```
-
-Select the model you want to use.
-
-Examples:
-
-- deepseek-chat
-- deepseek-expert
-
-Click **Set Default** if required.
-
-Restart OpenCodex if the running instance doesn't refresh automatically.
-
-Verify:
-
-```bash
-curl http://127.0.0.1:10100/v1/models
-```
-
----
-
-# Testing
-
-## Test the local API
-
-```bash
-curl http://127.0.0.1:8000/v1/models
-```
-
----
-
-## Test the OpenCodex proxy
-
-```bash
-curl http://127.0.0.1:10100/v1/models
-```
-
----
-
-## Test Chat Completion
-
-```bash
-curl http://127.0.0.1:10100/v1/chat/completions \
--H "Content-Type: application/json" \
--H "Authorization: Bearer dummy" \
--d '{
-  "model":"lm-studio/deepseek-chat",
-  "messages":[
-    {
-      "role":"user",
-      "content":"Hello!"
-    }
-  ]
-}'
-```
-
----
-
-# Architecture
-
-```
-                 OpenCode
-                     │
-                     ▼
-      http://127.0.0.1:10100/v1
-                     │
-              OpenCodex Proxy
-                     │
-                     ▼
-             LM Studio Provider
-                     │
-                     ▼
-      http://127.0.0.1:8000/v1
-                     │
-             DeepSeek API Server
-                     │
-                     ▼
-              Local DeepSeek Model
-```
-
----
-
-# Compatible Clients
-
-This repository only installs the local API server.
-
-You can use it with any client supporting the OpenAI Chat Completions API.
-
-Examples include:
-
-- ✅ OpenCode (via OpenCodex)
-- ✅ Continue
-- ✅ Cline
-- ✅ Roo Code
-- ✅ Open WebUI
-- ✅ LibreChat
-- ✅ Anything supporting the OpenAI Chat Completions API
-
----
-
-# Troubleshooting
-
-## OpenCode asks for an OpenAI login
-
-Ensure OpenCode points to OpenCodex instead of OpenAI.
-
-Base URL:
-
-```
-http://127.0.0.1:10100/v1
-```
-
-API Key:
-
-```
-dummy
-```
-
-Model:
-
-```
-openai/lm-studio/deepseek-chat
-```
-
----
-
-## OpenCodex still uses OpenAI
+Capture your DeepSeek session
 
 Run:
 
-```bash
-ocx provider list
-```
+python -m deepseek.auth
 
-Expected:
+A Chromium window will open.
 
-```
-lm-studio (default)
-```
+Important
 
-If OpenAI is still the default:
+- ✅ Log in using your existing DeepSeek account
+- ❌ Do not create a new account during authentication
 
-1. Open the OpenCodex dashboard.
-2. Open **Providers**.
-3. Select **LM Studio**.
-4. Click **Set as Default**.
-5. Restart OpenCodex.
+Creating a new account through the automated login flow may trigger additional verification or security checks.
 
-After LM Studio becomes the default, you may safely delete the OpenAI provider.
+Once login completes, your authentication token and session will be captured automatically and stored locally.
 
 ---
 
-## Loopback address error
+Next Step
 
-If you see:
+After successfully capturing your session, continue with the original DeepSeek-API setup guide:
 
-```
-baseUrl points to a loopback address
-```
+https://github.com/sums001/Deepseek-API
 
-Enable:
+Follow the instructions there to:
 
-```
-Allow local/private network
-```
+- Install the remaining dependencies
+- Start the OpenAI-compatible API server
+- Use the Python library
+- Connect OpenAI-compatible clients
+- Configure streaming, conversations, DeepThink, and web search
 
-when adding the provider.
-
----
-
-## Wrong model names
-
-OpenCodex prefixes the provider name.
-
-Instead of:
-
-```
-deepseek-chat
-```
-
-Use:
-
-```
-lm-studio/deepseek-chat
-```
-
-Verify:
-
-```bash
-curl http://127.0.0.1:10100/v1/models
-```
+This repository only handles authentication for Termux.
 
 ---
 
-## Models do not appear
+Notes
 
-Restart OpenCodex:
-
-```bash
-ocx restart
-```
-
-or refresh the provider from the dashboard.
+- Your authentication session is stored locally on your device.
+- Never share your session files.
+- Use your own DeepSeek account.
+- This project does not bypass DeepSeek authentication or DeepSeek's Terms of Service.
 
 ---
 
-# Roadmap
+Credits
 
-- [ ] OpenAI Responses API support
-- [ ] Streaming improvements
-- [ ] Embeddings API
-- [ ] Vision support
-- [ ] Function calling
-- [ ] Multi-model routing
-- [ ] Automatic OpenCode configuration
-- [ ] One-click OpenCodex setup
+This project is a fork of:
+
+https://github.com/sums001/Deepseek-API
+
+All credit for the original implementation goes to sums001 and contributors.
+
+This fork only adds a Termux-compatible authentication and automatic session capture workflow.
 
 ---
 
-# License
+License
 
-MIT
+This project is licensed under the MIT License, following the original DeepSeek-API project.
