@@ -1,302 +1,463 @@
-# DeepSeek API: a free LLM API powered by DeepSeek
+# DeepSeek-API-Termux
 
-**Using your own DeepSeek account.** No API key, no credits, no paid plan: it turns the free chat at [chat.deepseek.com](https://chat.deepseek.com) into an API you can call from code.
+Run **DeepSeek locally inside Termux** and expose it through an **OpenAI-compatible API**.
 
-You can use it in two ways:
+This project allows you to use local DeepSeek models with applications that support the OpenAI API, including:
 
-- 🐍 **As a Python library:** just call `client.chat("Hi")`. Supports streaming and multi-turn conversations.
-- 🔌 **As a local OpenAI-compatible API:** runs a server at `http://localhost:8000/v1` that speaks the OpenAI format, so the official `openai` SDK (and any OpenAI-compatible app) works as a drop-in, with `localhost` in place of OpenAI.
-
-You sign in once in a browser with your DeepSeek account; your session is saved and refreshed automatically after that.
-
-> **Unofficial project.** Not affiliated with or endorsed by DeepSeek. It automates the consumer DeepSeek web experience for personal use, so use it responsibly and within DeepSeek's terms.
-
----
-
-## Table of contents
-
-- [Why use this?](#why-use-this)
-- [Requirements](#requirements)
-- [Setup (2 minutes)](#setup-2-minutes)
-- [Usage 1: In Python (no server)](#usage-1-in-python-no-server)
-- [Usage 2: As an OpenAI-compatible server](#usage-2-as-an-openai-compatible-server)
-- [Command line](#command-line)
-- [Human-check & proof-of-work (automatic)](#human-check--proof-of-work-automatic)
-- [Models, DeepThink & web search](#models-deepthink--web-search)
-- [Concurrency](#concurrency)
-- [Rate limiting](#rate-limiting)
-- [Project layout](#project-layout)
-- [Notes & limitations](#notes--limitations)
-- [License](#license)
+- 🚀 OpenCode
+- 🤖 Continue
+- 💻 Cline
+- 🦘 Roo Code
+- 🌐 Open WebUI
+- 💬 LibreChat
+- 🔌 Any client supporting the OpenAI Chat Completions API
 
 ---
 
-## Why use this?
+# Features
 
-- **Free:** uses your normal signed-in DeepSeek account, no API billing.
-- **Drop-in OpenAI replacement:** point any OpenAI client at `localhost` and it just works.
-- **Full DeepSeek toolset:** pick the fast or expert model, and toggle DeepThink reasoning and web search per request.
-- **Streaming + conversations:** token-by-token output and multi-turn threads addressed by `conversation_id`.
-
----
-
-## Requirements
-
-- **Python 3.9+**
-- A **DeepSeek account** (the free one you use for [chat.deepseek.com](https://chat.deepseek.com) is fine)
-- Works on Windows, macOS, and Linux
+- 🚀 Runs entirely inside Termux
+- 🤖 OpenAI-compatible API
+- 🔥 Chat Completions API
+- 📦 No Docker required
+- 🌐 Completely local and offline
+- 🔌 Compatible with OpenAI-compatible applications
+- 🖥️ Easy model management through the OpenCodex GUI
 
 ---
 
-## Setup (2 minutes)
+# API
+
+Default server address:
+
+```
+http://127.0.0.1:8000/v1
+```
+
+Supported endpoints:
+
+```
+GET  /v1/models
+POST /v1/chat/completions
+```
+
+---
+
+# Verify Installation
 
 ```bash
-# 1. Clone the project
-git clone https://github.com/sums001/Deepseek-API.git
-cd "Deepseek-API"
+curl http://127.0.0.1:8000/v1/models
 ```
 
-**2. Create and activate a virtual environment**
+Expected response:
 
-On **macOS / Linux**:
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "deepseek-chat"
+    },
+    {
+      "id": "deepseek-expert"
+    }
+  ]
+}
+```
+
+---
+
+# Using with OpenCode
+
+OpenCode currently uses the **OpenAI Responses API**, while this project exposes the **OpenAI Chat Completions API**.
+
+To bridge the two, use **OpenCodex**.
+
+---
+
+# Install OpenCodex
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+npm install -g @bitkyc08/opencodex
 ```
 
-On **Windows** (PowerShell):
+---
 
-```powershell
-python -m venv venv
-venv\Scripts\Activate.ps1
-```
+# Configure OpenCodex
 
-> On Windows you may need to allow script execution once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. In `cmd.exe` activate with `venv\Scripts\activate.bat` instead.
-
-**3. Install dependencies and sign in**
+Start OpenCodex once:
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Install the browser Playwright needs (one-time)
-playwright install chromium
-
-# Sign in once: a browser opens, log into your DeepSeek account
-python -m deepseek.auth
+ocx start
 ```
 
-The login window opens so you can sign in by hand and solve the human-check once. After that your session (bearer token + cookies) is saved under `session/` (git-ignored, never shared) and reused on every run — the cached session is refreshed automatically, so your first request works right away.
+Open the dashboard:
 
-> The server can also open this window for you on demand the first time it needs a session, so this step is optional for local single-user use.
+```
+http://localhost:10100
+```
 
-### Termux (Android) Setup
+Go to:
 
-On **Android Termux**, Python Playwright cannot be installed directly. This repository includes a Node.js `playwright-core` helper layer that uses Termux's system Chromium binary (`/data/data/com.termux/files/usr/bin/chromium-browser`).
+```
+Providers
+```
+
+Add a new provider.
+
+## Provider Type
+
+```
+LM Studio
+```
+
+## Base URL
+
+```
+http://127.0.0.1:8000/v1
+```
+
+## API Key
+
+```
+dummy
+```
+
+## Default Model
+
+```
+deepseek-chat
+```
+
+Enable:
+
+```
+☑ Allow local/private network
+```
+
+Click:
+
+```
+Add Provider
+```
+
+---
+
+## Set LM Studio as Default
+
+After adding the provider:
+
+1. Open **Providers**
+2. Select **LM Studio**
+3. Click **Set as Default**
+4. Restart OpenCodex
+
+(Optional)
+
+Delete the default OpenAI provider afterwards.
+
+---
+
+# Start OpenCodex
 
 ```bash
-# 1. Install system dependencies (Chromium, Node.js, Python)
-pkg install x11-repo
-pkg install chromium nodejs python
-
-# 2. Install Node.js dependencies
-npm install
-
-# 3. Install Python dependencies
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# 4. Sign in once
-python3 -m deepseek.auth
+ocx start
 ```
 
----
-
-## Usage 1: In Python (no server)
-
-The simplest way if your code is already Python.
-
-```python
-from deepseek import DeepSeekClient
-
-client = DeepSeekClient()                # loads your signed-in session
-
-# Get a full reply
-reply = client.chat("Say hello in one short sentence.")
-print(reply.text)
-
-# Continue the SAME conversation — pass the id back
-reply2 = client.chat("And now in French?", conversation_id=reply.conversation_id)
-print(reply2.text)
-
-# Stream the answer as it's typed
-for chunk in client.stream("Tell me a short joke"):
-    print(chunk, end="", flush=True)
-```
-
-`chat()` returns the full text plus a `conversation_id`; pass that id back to keep the thread going, or omit it to start fresh. `stream()` yields the reply piece by piece.
-
-👉 More: [examples/01_direct_chat.py](examples/01_direct_chat.py), [02_direct_conversation.py](examples/02_direct_conversation.py), [03_direct_stream.py](examples/03_direct_stream.py)
-
----
-
-## Usage 2: As an OpenAI-compatible server
-
-Start a local server that speaks the OpenAI API, so existing OpenAI tools and SDKs work unchanged.
+Verify:
 
 ```bash
-python app.py
-# -> DeepSeek OpenAI-compatible API on http://127.0.0.1:8000
+curl http://127.0.0.1:10100/v1/models
 ```
 
-Then point any OpenAI client at it (the API key is required by the SDK but ignored):
+Expected:
 
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="unused")
-
-resp = client.chat.completions.create(
-    model="deepseek-chat",
-    messages=[{"role": "user", "content": "Hello!"}],
-)
-print(resp.choices[0].message.content)
+```json
+{
+  "object":"list",
+  "data":[
+    {
+      "id":"lm-studio/deepseek-chat"
+    },
+    {
+      "id":"lm-studio/deepseek-expert"
+    }
+  ]
+}
 ```
 
-Or call it with plain HTTP / `curl`:
+---
+
+# Configure OpenCode
+
+Example configuration:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "http://127.0.0.1:10100/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "lm-studio/deepseek-chat": {},
+        "lm-studio/deepseek-expert": {}
+      }
+    }
+  },
+  "model": "openai/lm-studio/deepseek-chat"
+}
+```
+
+---
+
+# Changing Models
+
+Once everything is configured, **you do not need to edit any JSON files** to switch models.
+
+Simply open the OpenCodex dashboard:
+
+```
+http://localhost:10100
+```
+
+Navigate to:
+
+```
+Providers
+    ↓
+LM Studio
+    ↓
+Models
+```
+
+Select whichever model you want to use.
+
+For example:
+
+- deepseek-chat
+- deepseek-expert
+
+Click **Set Default** (if required), then restart OpenCodex if the running instance doesn't immediately refresh.
+
+Verify available models:
 
 ```bash
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model": "deepseek-chat", "messages": [{"role": "user", "content": "Hello!"}]}'
+curl http://127.0.0.1:10100/v1/models
 ```
 
-**Endpoints**
+Example:
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/v1/chat/completions` | Chat (supports `"stream": true`, plus optional `"conversation_id"`, `"thinking"`, `"search"`) |
-| `GET`  | `/v1/models` | Lists the available models |
-| `GET`  | `/healthz` | Health check (rate-limit exempt) |
-
-> Change the address with env vars: `HOST=0.0.0.0 PORT=8080 python app.py`, or run `uvicorn server.api:app --host 0.0.0.0 --port 8080`.
-
-👉 More: [examples/04_server_http.py](examples/04_server_http.py), [examples/05_server_stream.py](examples/05_server_stream.py), [examples/06_server_openai_sdk.py](examples/06_server_openai_sdk.py)
+```json
+{
+  "object":"list",
+  "data":[
+    {
+      "id":"lm-studio/deepseek-chat"
+    },
+    {
+      "id":"lm-studio/deepseek-expert"
+    }
+  ]
+}
+```
 
 ---
 
-## Command line
+# Testing
+
+## Test local API
 
 ```bash
-python -m deepseek.auth          # sign in and save the session
+curl http://127.0.0.1:8000/v1/models
 ```
 
 ---
 
-## Human-check & proof-of-work (automatic)
-
-DeepSeek's chat sits behind two gates, both handled for you:
-
-- **AWS WAF human-check:** access needs a signed-in browser session that has
-  cleared the "verify you're human" check. `python -m deepseek.auth` opens a real
-  browser so you can sign in and solve it once; the resulting token + cookies are
-  cached under `session/` and reused on every request.
-- **Proof-of-work:** every completion is gated by a PoW challenge. The bridge
-  solves it by running DeepSeek's own `sha3_wasm_bg.wasm` module — the same one
-  the browser loads — inside a `wasmtime` sandbox, so there's nothing to do on
-  your end.
-
-A cached session is reused for ~6 hours and refreshed headlessly from your saved
-Chrome profile when possible; only a full expiry sends you back to the browser.
-
----
-
-## Models, DeepThink & web search
-
-The `model` name selects **which model** answers. DeepThink and web search are
-**not** models — they're orthogonal toggles you pass per request.
-
-| Model | DeepSeek mode | Notes |
-| --- | --- | --- |
-| `deepseek-chat` | Instant | Fast default model |
-| `deepseek-expert` | Expert | Stronger, slower |
-
-Pass `thinking: true` (DeepThink reasoning) and/or `search: true` (web search) in
-the request body — or via the OpenAI SDK's `extra_body`:
-
-```python
-resp = client.chat.completions.create(
-    model="deepseek-expert",
-    messages=[{"role": "user", "content": "What changed in the news today?"}],
-    extra_body={"thinking": True, "search": True},
-)
-```
-
-`conversation_id`, `thinking`, and `search` are non-OpenAI extras. A thread's
-model is fixed at creation, so `model` can't be combined with `conversation_id`
-on resume. Unknown model names return a `404` (no silent fallback). See
-[server/config.py](server/config.py).
-
----
-
-## Concurrency
-
-The server bridges a **single** signed-in DeepSeek account behind one shared
-client. The PoW solver's `wasmtime` store isn't reentrant, so upstream calls are
-**serialized**: parallel HTTP requests queue behind a lock and run one at a time
-(see [server/api.py](server/api.py)). This is intentional — throughput is
-sequential, not parallel. Keep concurrent in-flight requests low, and please
-don't hammer your account.
-
----
-
-## Rate limiting
-
-On top of serialization, the bridge enforces a self-imposed rate limit with a
-dependency-free sliding-window limiter ([server/ratelimit.py](server/ratelimit.py)):
-it caps accepted requests **per client IP** and returns a standard `429` +
-`Retry-After` when you exceed it. `/healthz` is exempt.
-
-| Env var | Default | Meaning |
-| --- | --- | --- |
-| `RATE_LIMIT_PER_MINUTE` | `30` | Requests/minute accepted per client IP |
+## Test OpenCodex proxy
 
 ```bash
-RATE_LIMIT_PER_MINUTE=60 python app.py   # raise it
+curl http://127.0.0.1:10100/v1/models
 ```
 
-**On the client side, use exponential backoff.** Transient `429`s clear if you
-retry with growing delays (e.g. 1s, 2s, 4s). The official `openai` SDK does this
-automatically and honours `Retry-After`; with plain HTTP, add a few retries
-yourself.
+---
+
+## Test Chat Completion
+
+```bash
+curl http://127.0.0.1:10100/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer dummy" \
+-d '{
+  "model":"lm-studio/deepseek-chat",
+  "messages":[
+    {
+      "role":"user",
+      "content":"Hello!"
+    }
+  ]
+}'
+```
 
 ---
 
-## Project layout
+# Architecture
 
-| Path | What it does |
-| --- | --- |
-| [deepseek/](deepseek/) | The core library: `DeepSeekClient`, auth/browser sign-in ([auth.py](deepseek/auth.py)), the HTTP driver ([client.py](deepseek/client.py)), and the PoW solver ([pow.py](deepseek/pow.py)) |
-| [server/](server/) | The FastAPI OpenAI-compatible server |
-| [examples/](examples/) | Runnable examples for every feature ([examples/README.md](examples/README.md)) |
-| [app.py](app.py) | Starts the server |
-
----
-
-## Notes & limitations
-
-- **Sign in once, then reuse.** The cached session refreshes automatically; you only re-sign-in if it fully expires.
-- **Be reasonable.** Please use it in moderation, and don't spam or hammer it with automated bulk requests.
-- **No real token counts.** `usage` in responses is a rough ~4-chars/token estimate.
-- **Most OpenAI params are accepted but ignored** (`temperature`, `top_p`, `max_tokens`); only `model`, `messages`, `stream`, `conversation_id`, `thinking`, and `search` do anything.
-- **Vision is deferred.** It needs image-upload plumbing that isn't built yet.
-- **Your session is private.** Everything in `session/` (cookies + token) stays on your machine and is git-ignored.
-
-## License
-
-Released under the [MIT License](LICENSE). As this is an unofficial project, you remain responsible for complying with DeepSeek's terms of service.
+```
+                 OpenCode
+                     │
+                     ▼
+      http://127.0.0.1:10100/v1
+                     │
+              OpenCodex Proxy
+                     │
+                     ▼
+             LM Studio Provider
+                     │
+                     ▼
+      http://127.0.0.1:8000/v1
+                     │
+             DeepSeek API Server
+                     │
+                     ▼
+              Local DeepSeek Model
+```
 
 ---
 
+# Compatible Clients
+
+- ✅ OpenCode
+- ✅ Continue
+- ✅ Cline
+- ✅ Roo Code
+- ✅ Open WebUI
+- ✅ LibreChat
+- ✅ Anything supporting the OpenAI Chat Completions API
+
+---
+
+# Troubleshooting
+
+## OpenCode asks for an OpenAI login
+
+Ensure OpenCode points to OpenCodex instead of OpenAI.
+
+Base URL:
+
+```
+http://127.0.0.1:10100/v1
+```
+
+API Key:
+
+```
+dummy
+```
+
+Model:
+
+```
+openai/lm-studio/deepseek-chat
+```
+
+---
+
+## OpenCodex still uses OpenAI
+
+Run:
+
+```bash
+ocx provider list
+```
+
+Expected:
+
+```
+lm-studio (default)
+```
+
+If OpenAI is still the default:
+
+1. Open the OpenCodex dashboard.
+2. Open **Providers**.
+3. Select **LM Studio**.
+4. Click **Set as Default**.
+5. Restart OpenCodex.
+
+After LM Studio becomes the default, you may safely delete the OpenAI provider.
+
+---
+
+## Loopback address error
+
+If you see:
+
+```
+baseUrl points to a loopback address
+```
+
+Enable:
+
+```
+Allow local/private network
+```
+
+when adding the provider.
+
+---
+
+## Wrong model names
+
+OpenCodex prefixes the provider name.
+
+Instead of:
+
+```
+deepseek-chat
+```
+
+Use:
+
+```
+lm-studio/deepseek-chat
+```
+
+Verify:
+
+```bash
+curl http://127.0.0.1:10100/v1/models
+```
+
+---
+
+## Models do not appear
+
+Restart OpenCodex:
+
+```bash
+ocx restart
+```
+
+or refresh the provider from the dashboard.
+
+---
+
+# Roadmap
+
+- [ ] OpenAI Responses API support
+- [ ] Streaming improvements
+- [ ] Embeddings API
+- [ ] Vision support
+- [ ] Function calling
+- [ ] Multi-model routing
+- [ ] Automatic OpenCode configuration
+- [ ] One-click OpenCodex setup
+
+---
+
+# License
+
+MIT
