@@ -5,4 +5,3 @@ fastapi>=0.99,<0.100    # OpenAI-compatible server
 uvicorn>=0.30           # ASGI server
 pydantic<2.0            # request/response models (pure-python wheel for Termux compatibility)
 python-dotenv>=1.0      # load credentials from .env
-openai                  # OpenAI client format support
